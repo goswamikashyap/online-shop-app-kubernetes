@@ -13,7 +13,39 @@ Browser ──▶ EC2 SG ────┼──▶ /apache ──▶ apache-servi
                        │
                        └──▶ Port-Forward (8080:80) ──▶ online-shop-svc (:80) ──▶ 2x Pods (:80)
 ```
+**How Ingress Works**
+```text
+                        [ External User / Browser ]
+                                     │
+                 ┌───────────────────┴───────────────────┐
+                 │                                       │
+      http://<EC2-IP>/shop                   http://<EC2-IP>/apache
+                 │                                       │
+                 └───────────────────┬───────────────────┘
+                                     ▼
+                    ┌─────────────────────────────────┐
+                    │    NGINX Ingress Controller     │
+                    │  (Reads: online-shop-ingress)   │
+                    │  - Rewrites /shop or /apache -> /│
+                    └────────────────┬────────────────┘
+                                     │
+                 ┌───────────────────┴───────────────────┐
+                 │ (Path: /shop)                         │ (Path: /apache)
+                 ▼                                       ▼
+   ┌───────────────────────────┐           ┌───────────────────────────┐
+   │  Service: online-shop-svc │           │  Service: apache-service  │
+   │  (ClusterIP - Port 80)    │           │  (ClusterIP - Port 80)    │
+   └─────────────┬─────────────┘           └─────────────┬─────────────┘
+                 │                                       │
+        ┌────────┴────────┐                              │
+        ▼                 ▼                              ▼
+ ┌─────────────┐   ┌─────────────┐                ┌─────────────┐
+ │ Online Shop │   │ Online Shop │                │ Apache Pod  │
+ │   Pod 1     │   │   Pod 2     │                │  (Port 80)  │
+ │  (Port 80)  │   │  (Port 80)  │                └─────────────┘
+ └─────────────┘   └─────────────┘
 
+```
 ## 🖼️ Application Preview
 
 1. **Storefront / Home Page**
