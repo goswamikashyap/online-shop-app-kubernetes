@@ -5,17 +5,14 @@ Welcome to the **Online Shop** project! This repository demonstrates an end-to-e
 
 ## 🏗️ Architecture & Workflow
 
-```text
-Browser (:5173) ──▶ AWS EC2 Security Group (:5173) ──▶ kubectl port-forward (5173:5173)
-                                                               │
-                                                               ▼
-                                          Kubernetes Service: online-shop-svc (:5173)
-                                                               │
-                                                               ▼
-                                      Kubernetes Deployment: 2x Nginx Pods (:80)
-```
 
----
+```text
+                       ┌──▶ /shop   ──▶ online-shop-svc (:80) ──▶ 2x Online Shop Pods (:80)
+                       │
+Browser ──▶ EC2 SG ────┼──▶ /apache ──▶ apache-service (:80)  ──▶ Apache Pods (:80)
+                       │
+                       └──▶ Port-Forward (8080:80) ──▶ online-shop-svc (:80) ──▶ 2x Pods (:80)
+```
 
 ## 🖼️ Application Preview
 
@@ -48,7 +45,7 @@ Browser (:5173) ──▶ AWS EC2 Security Group (:5173) ──▶ kubectl port-
 
 ## 🛠️ Prerequisites
 
-- **AWS EC2 Instance** (Ubuntu) with inbound TCP port `5173` allowed in the Security Group
+- **AWS EC2 Instance** (Ubuntu) with inbound TCP port `8080` allowed in the Security Group
 - **Docker** installed and running
 - **Kubernetes Cluster** (`kubectl` configured with KinD / Minikube / EKS)
 - **Docker Hub Account** (`kashyapgoswami`)
@@ -76,21 +73,22 @@ docker push kashyapgoswami/online_shop_app:latest
 kubectl apply -f namespace.yml
 kubectl apply -f deployment.yml
 kubectl apply -f service.yml
+kubectl apply -f ingress.yml
 
-# Verify that pods and services are running
+# Verify that pods, services and ingress are running
 kubectl get all -n online-shop
+kubectl get ingress -n online-shop
 ```
 
 ### 3. Expose the Application via Port-Forwarding
-
+# Forward EC2 host port 8080 to the Kubernetes Service
 ```bash
-# Forward EC2 host port 5173 to the Kubernetes Service
-kubectl port-forward svc/online-shop-svc -n online-shop 5173:5173 --address=0.0.0.0
+kubectl port-forward svc/online-shop-svc -n online-shop 8080:80 --address=0.0.0.0
 ```
 
 Open your browser and visit:
 ```text
-http://<YOUR-EC2-PUBLIC-IP>:5173
+http://<YOUR-EC2-PUBLIC-IP>:8080
 ```
 
 ---
@@ -100,14 +98,14 @@ http://<YOUR-EC2-PUBLIC-IP>:5173
 ### Clean Up Resources (Before Stopping EC2)
 
 To avoid unnecessary AWS charges while preserving your code and manifests for future runs:
-
-```bash
 # 1. Stop active port-forwarding (Press Ctrl + C in the active terminal)
 
 # 2. Delete the Kubernetes namespace and all deployed pods/services
+```bash
 kubectl delete ns online-shop
 
 # 3. Remove any standalone test containers and dangling images
+
 docker rm -f \$(docker ps -a -q --filter ancestor=online_shop_app:latest) 2>/dev/null || true
 docker image prune -f
 ```
@@ -122,24 +120,24 @@ When you start your EC2 instance again (note that AWS assigns a new Public IPv4 
 cd ~/kubernetes_practice/k8s_practice_project/online_shopping_app
 
 # 2. Re-apply the Kubernetes manifests
-kubectl apply -f namespace.yml -f deployment.yml -f service.yml
+kubectl apply -f namespace.yml -f deployment.yml -f service.yml -f ingress.yml
 
 # 3. Confirm pods are in Running state
 kubectl get pods -n online-shop
 
 # 4. Start port-forwarding
-kubectl port-forward svc/online-shop-svc -n online-shop 5173:5173 --address=0.0.0.0
+kubectl port-forward svc/online-shop-svc -n online-shop 8080:80 --address=0.0.0.0
 ```
 
-Visit `http://<NEW-EC2-PUBLIC-IP>:5173` in your browser.
+Visit `http://<NEW-EC2-PUBLIC-IP>:8080` in your browser.
 
 ---
 
 ## 🧠 Troubleshooting & Key Learnings
 
 - **RFC 1123 Naming Rules:** Kubernetes resource names and namespaces must use hyphens (`online-shop`) rather than underscores (`online_shop`).
-- **Port Alignment (`port` vs `targetPort`):** Because `nginx.conf` listens on port `80`, `containerPort` and `targetPort` must be set to `80`, while the Service `port` and `port-forward` expose `5173`.
-- **Port Conflicts:** Always stop standalone Docker containers occupying host port `5173` before running `kubectl port-forward`.
+- **Port Alignment (`port` vs `targetPort`):** Because `nginx.conf` listens on port `80`, `containerPort` and `targetPort` must be set to `8080`, while the Service `port` and `port-forward` expose `8080`.
+- **Port Conflicts:** Always stop standalone Docker containers occupying host port `8080` before running `kubectl port-forward`.
 
 ---
 
